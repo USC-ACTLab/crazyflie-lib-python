@@ -103,7 +103,8 @@ class Cloader:
         pk = self.link.receive_packet(1)
 
         while ((not pk or pk.header != 0xFF or
-                struct.unpack('<BB', pk.data[0:2]) != (target_id, 0xFF)
+                struct.unpack('<BB', pk.data[0:2]) != (target_id, 0xFF) or
+                len(pk.data) < 6
                 ) and retry_counter >= 0):
             pk = self.link.receive_packet(1)
             retry_counter -= 1

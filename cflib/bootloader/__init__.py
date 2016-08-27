@@ -319,55 +319,80 @@ class Bootloader:
 
             # Flash when the complete buffers are full
             if ctr >= t_data.buffer_pages:
+                while True:
+                    if self.progress_cb:
+                        self.progress_cb('({}/{}) Writing buffer to {}...'.format(
+                            current_file_number,
+                            total_files,
+                            TargetTypes.to_string(t_data.id)),
+
+                            int(progress))
+                    else:
+                        sys.stdout.write('%d' % ctr)
+                        sys.stdout.flush()
+                    if not self._cload.write_flash(t_data.addr, 0,
+                                                   start_page + i - (ctr - 1),
+                                                   ctr):
+                        if self.progress_cb:
+                            self.progress_cb(
+                                'Error during flash operation (code %d)'.format(
+                                    self._cload.error_code),
+                                int(progress))
+                        else:
+                            print('\nError during flash operation (code %d). '
+                                  'Maybe wrong radio link?' %
+                                  self._cload.error_code)
+                        raise Exception()
+
+                    offset = i - (ctr - 1)
+                    written = self._cload.read_flash(t_data.addr, start_page + offset)
+                    if ((offset + 1) * t_data.page_size) > len(image):
+                        toWrite = image[i * t_data.page_size:]
+                    else:
+                        toWrite = image[offset * t_data.page_size: (offset + 1) * t_data.page_size]
+                    if written != toWrite:
+                        print("Error: written patch does not match! Retry.")
+                    else:
+                        print("Match!")
+                        ctr = 0
+                        break
+
+        if ctr > 0:
+            while True:
                 if self.progress_cb:
                     self.progress_cb('({}/{}) Writing buffer to {}...'.format(
                         current_file_number,
                         total_files,
                         TargetTypes.to_string(t_data.id)),
-
                         int(progress))
                 else:
                     sys.stdout.write('%d' % ctr)
                     sys.stdout.flush()
-                if not self._cload.write_flash(t_data.addr, 0,
-                                               start_page + i - (ctr - 1),
-                                               ctr):
+                if not self._cload.write_flash(
+                        t_data.addr, 0,
+                        (start_page + (int((len(image) - 1) / t_data.page_size)) -
+                         (ctr - 1)), ctr):
                     if self.progress_cb:
                         self.progress_cb(
                             'Error during flash operation (code %d)'.format(
                                 self._cload.error_code),
                             int(progress))
                     else:
-                        print('\nError during flash operation (code %d). '
-                              'Maybe wrong radio link?' %
-                              self._cload.error_code)
+                        print('\nError during flash operation (code %d). Maybe'
+                              ' wrong radio link?' % self._cload.error_code)
                     raise Exception()
 
-                ctr = 0
-
-        if ctr > 0:
-            if self.progress_cb:
-                self.progress_cb('({}/{}) Writing buffer to {}...'.format(
-                    current_file_number,
-                    total_files,
-                    TargetTypes.to_string(t_data.id)),
-                    int(progress))
-            else:
-                sys.stdout.write('%d' % ctr)
-                sys.stdout.flush()
-            if not self._cload.write_flash(
-                    t_data.addr, 0,
-                    (start_page + (int((len(image) - 1) / t_data.page_size)) -
-                     (ctr - 1)), ctr):
-                if self.progress_cb:
-                    self.progress_cb(
-                        'Error during flash operation (code %d)'.format(
-                            self._cload.error_code),
-                        int(progress))
+                offset = (int((len(image) - 1) / t_data.page_size)) - (ctr - 1)
+                written = self._cload.read_flash(t_data.addr, (start_page + offset))
+                if ((offset + 1) * t_data.page_size) > len(image):
+                    toWrite = image[i * t_data.page_size:]
                 else:
-                    print('\nError during flash operation (code %d). Maybe'
-                          ' wrong radio link?' % self._cload.error_code)
-                raise Exception()
+                    toWrite = image[offset * t_data.page_size: (offset + 1) * t_data.page_size]
+                if written != toWrite:
+                    print("Error: written patch does not match! Retry.")
+                else:
+                    print("Match!")
+                    break
 
         if self.progress_cb:
             self.progress_cb(
