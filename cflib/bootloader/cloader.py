@@ -271,7 +271,9 @@ class Cloader:
 
     def request_info_update(self, target_id):
         if target_id not in self.targets:
-            self._update_info(target_id)
+            while True: # retry until successful
+                if self._update_info(target_id):
+                    break
         if self._info_cb:
             self._info_cb.call(self.targets[target_id])
         return self.targets[target_id]
